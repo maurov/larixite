@@ -572,6 +572,10 @@ class FdmnesXasInput:
         Path
             path to the written YAML file
         """
+        def _unset(value):
+            """Map the "!" placeholder set in `__post_init__` back to None"""
+            return None if value == "!" else value
+
         params_dict = {
             "structpath": str(self.structpath),
             "absorber": self.absorber.symbol,
@@ -579,16 +583,25 @@ class FdmnesXasInput:
             "struct_type": self.struct_type,
             "frame": self.frame,
             "radius": self.radius,
+            "green": self.green,
+            "scf": self.scf,
             "erange": self.erange,
             "rself": self.rself,
             "nself": self.nself,
             "pself": self.pself,
-            "vmax": self.vmax,
+            "vmax": _unset(self.vmax),
             "fileout_prefix": self.fileout_prefix,
             "params": self.params,
             "optimize": self.optimize,
             "spacer": self.spacer,
             "outdir": str(self.outdir) if self.outdir else None,
+            "ecut": _unset(self.ecut),
+            "ecent": self.ecent,
+            "elarg": self.elarg,
+            "gamma_hole": _unset(self.gamma_hole),
+            "gamma_max": self.gamma_max,
+            "gaussian": _unset(self.gaussian),
+            "estart": _unset(self.estart),
         }
 
         if yamlpath is None:
@@ -627,7 +640,12 @@ class FdmnesXasInput:
         with open(yamlpath) as fp:
             params_dict = yaml.safe_load(fp)
 
-        kwargs = {k: v for k, v in params_dict.items() if k != "structpath"}
+        #: "!" placeholders (files written before they were mapped to None)
+        kwargs = {
+            k: (None if v == "!" else v)
+            for k, v in params_dict.items()
+            if k != "structpath"
+        }
         return cls(params_dict["structpath"], **kwargs)
 
 
