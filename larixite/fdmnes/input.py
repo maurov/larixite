@@ -10,6 +10,7 @@ spectroscopy (XAS, XES, RIXS) from the atomic structures
 
 """
 
+import hashlib
 import time
 import yaml
 from dataclasses import dataclass
@@ -438,7 +439,16 @@ class FdmnesXasInput:
     def write_input(
         self, inputtext: str | None = None, outdir: str | Path | None = None
     ) -> Path:
-        """Write the FDMNES input text to disk and return the job output directory"""
+        """Write the FDMNES input text to disk and return the job output directory
+
+        The job directory `{outdir}/{fileout_prefix}_{YYMMDD}_{HHMMSS}` contains:
+
+        - `{fileout_prefix}.inp`: FDMNES input file
+        - `fdmfile.txt`: FDMNES file list
+        - the structure file (copied, CIF only)
+        - `{fileout_prefix}_params.yaml`: input parameters (see `dump_params()`)
+        - `provenance.yaml`: write-once provenance record (see `dump_provenance()`)
+        """
         if inputtext is None:
             inputtext = self.get_input()
         if isinstance(outdir, str):
@@ -461,6 +471,7 @@ class FdmnesXasInput:
             logger.info(f"copied {src.name} to {jobdir}")
         self._jobs.append(jobdir)
         _ = self.dump_params(jobdir / f"{self.fileout_prefix}_params.yaml")
+        _ = self.dump_provenance(jobdir)
         return jobdir
 
     def write_sbatch(
@@ -619,6 +630,51 @@ class FdmnesXasInput:
             yaml.dump(params_dict, fp, default_flow_style=False)
         logger.info(f"written {yamlpath.name}")
         return yamlpath
+
+    def dump_provenance(self, jobdir: str | Path) -> Path:
+        """Write the provenance record `{jobdir}/provenance.yaml`
+
+        Called once by `write_input()`; not updated afterwards.
+
+        Keys: `schema`, `created` (ISO 8601 local time), `structure_file`,
+        `structure_path`, `structure_sha256` (sha256 of the structure file
+        bytes, None if the structure does not come from an existing file),
+        `code`, `code_version` (None if unknown), `larixite_version`.
+
+        Parameters
+        ----------
+        jobdir : str | Path
+            path to the job directory
+
+        Returns
+        -------
+        Path
+            path to the written YAML file
+        """
+        jobdir = Path(jobdir)
+        structpath = self._xs.filepath
+        structure_file, structure_path, structure_sha256 = None, None, None
+        if structpath is not None:
+            structpath = Path(structpath).resolve()
+            structure_file = structpath.name
+            structure_path = str(structpath)
+            if structpath.is_file():
+                structure_sha256 = hashlib.sha256(structpath.read_bytes()).hexdigest()
+        prov = {
+            "schema": 1,
+            "created": isotime(sep="T"),
+            "structure_file": structure_file,
+            "structure_path": structure_path,
+            "structure_sha256": structure_sha256,
+            "code": "fdmnes",
+            "code_version": None,
+            "larixite_version": larixite_version,
+        }
+        provpath = jobdir / "provenance.yaml"
+        with open(provpath, "w") as fp:
+            yaml.safe_dump(prov, fp, default_flow_style=False, sort_keys=False)
+        logger.info(f"written {provpath.name}")
+        return provpath
 
     @classmethod
     def from_yaml(cls, yamlpath: str | Path) -> "FdmnesXasInput":
