@@ -12,7 +12,7 @@ include = ["larixite"]
 [project]
 name = "larixite"
 dynamic = ["version"]
-requires-python = ">= 3.9"
+requires-python = ">= 3.11"
 description = "convert CIF data to inputs for XAS calculations Feff, FDMNES, etc"
 readme = "README.md"
 authors = [
@@ -37,10 +37,10 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     ]
 
 [project.urls]
@@ -53,5 +53,26 @@ web = ["flask"]
 jupyter = ["jupyterlab==3.*", "crystal-toolkit>=2025.7.31"]
 test = ["pytest", "pytest-cov", "pygments"]
 doc = ["sphinx"]
-dev = ["build", "twine", "ruff"]
+dev = [
+    "larixite[test]",
+    "build",
+    "twine",
+    "pre-commit",
+    "ruff",
+    "mypy",
+    "scipy-stubs",
+    "types-PyYAML",
+    "types-requests",
+    "pytest-xdist",
+    "hypothesis",
+]
 all = ["larixite[dev,web,test,doc,jupyter]"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+follow_imports = "silent"
+exclude = [
+    "^doc/",
+    "^examples/",
+]
